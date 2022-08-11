@@ -9,6 +9,8 @@ from urllib.parse import urlencode
 from loguru import logger
 from urllib3 import PoolManager, HTTPResponse, HTTPConnectionPool
 
+from .logger import logger
+
 __all__ = ("Requester",)
 
 
