@@ -66,6 +66,9 @@ class Requester(PoolManager):
         if headers is None:
             headers = {"Content-Type": "application/json; charset=utf-8"}
 
+        if "Content-Type" not in headers:
+            headers["Content-Type"] = "application/json; charset=utf-8"
+
         if "body" not in urlopen_kw:
             raise TypeError(
                 "JSON type request, parameters can only be placed in the request body."
