@@ -12,7 +12,7 @@ from typing import Callable, Union
 from loguru import logger as _logger
 from loguru._logger import Logger as _Logger
 
-__all__ = ("logger", )
+__all__ = ("logger",)
 
 
 class StderrDispose:
@@ -146,11 +146,11 @@ class Logger:
 
     def __init__(self):
         """"""
-        self._flag = "json"
+        self.__flag = "json"
         self.__rename_callback = None
-        self.app = AppDispose(flag=self._flag)
-        self.json = JsonDispose(flag=self._flag)
-        self.stderr = StderrDispose(handler=self.json.handler, flag=self._flag)
+        self.app = AppDispose(flag=self.__flag)
+        self.json = JsonDispose(flag=self.__flag)
+        self.stderr = StderrDispose(handler=self.json.handler, flag=self.__flag)
 
     def __getattr__(self, item) -> _logger:
         """"""
@@ -182,6 +182,16 @@ class Logger:
         """"""
         self._context_bind.set(json.dumps(kwargs))
         return
+
+    @property
+    def flag(self):
+        """"""
+        return self.__flag
+
+    def setter_flag(self, flag: str):
+        """"""
+        self.__flag = flag
+        return flag
 
 
 logger: Union[Logger, _Logger] = Logger()
