@@ -63,8 +63,8 @@ class Requester(PoolManager):
 
     def json_request(self, method, url, fields=None, headers=None, with_logger=False, **urlopen_kw):
         """"""
-        if "Content-Type" not in headers:
-            headers["Content-Type"] = "application/json; charset=utf-8"
+        if headers is None:
+            headers = {"Content-Type": "application/json; charset=utf-8"}
 
         if "body" not in urlopen_kw:
             raise TypeError(
