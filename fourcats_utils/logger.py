@@ -5,21 +5,25 @@
 import sys
 import copy
 import json
+import datetime
 import contextvars
-from typing import Callable
+from typing import Callable, Union
 
 from loguru import logger as _logger
+from loguru._logger import Logger as _Logger
+
+__all__ = ("logger", )
 
 
 class StderrDispose:
     """"""
 
-    def __init__(self, logger: _logger, flag: str = "json"):
+    def __init__(self, handler: _logger, flag: str = "json"):
         """"""
-        logger.remove()
+        handler.remove()
         self.flag = flag
         self.__stderr_callback = None
-        logger.add(sink=sys.stderr, colorize=True, level="DEBUG", format=self.__dispose)
+        handler.add(sink=sys.stderr, colorize=True, format=self.__dispose)
 
     def dispose(self, func: Callable) -> Callable:
         self.__stderr_callback = func
@@ -55,18 +59,18 @@ class JsonDispose:
         """"""
         self.flag = flag
         self.__json_callback = None
-        self.logger = _logger.patch(self.__dispose)
+        self.handler = _logger.patch(self.__dispose)
 
     def init(self, sink, level: str = "INFO", encoding: str = "UTF-8", **kwargs) -> None:
         """"""
         if "filter" not in kwargs:
             kwargs["filter"] = lambda x: x["extra"].get(self.flag, False) is True
-        self.logger.add(sink=sink, level=level, format="{extra[serialized]}", encoding=encoding, **kwargs)
+        self.handler.add(sink=sink, level=level, format="{extra[serialized]}", encoding=encoding, **kwargs)
         return
 
     def bind(self, **kwargs) -> None:
         """"""
-        self.logger = self.logger.bind(**kwargs)
+        self.handler = self.handler.bind(**kwargs)
         return
 
     def dispose(self, func) -> Callable:
@@ -82,9 +86,16 @@ class JsonDispose:
 
     def __json_dispose(self, record: dict) -> None:
         """"""
-        data = copy.deepcopy(record["extra"])
+        data = copy.copy(record["extra"])
         data.pop(self.flag, "")
-        record["extra"]["serialized"] = json.dumps(data)
+        data.update(**dict(
+            message=record.get("message", ""),
+            level=record.get("level", dict()).name,
+            fileline=":".join([record["name"], record["function"], str(record["line"])]),
+            datetime=record.get("time", datetime.datetime.now()).strftime("%Y-%m-%d %H:%M:%S.%f"),
+            timestamp=record.get("time", datetime.datetime.now()).timestamp()
+        ))
+        record["extra"]["serialized"] = json.dumps(data, ensure_ascii=False)
         return
 
 
@@ -96,9 +107,9 @@ class AppDispose:
         self.flag = flag
         self.__app_callback = None
 
-    def init(self, logger: _logger, sink, level: str = "INFO", **kwargs) -> None:
+    def init(self, handler: _logger, sink, level: str = "INFO", **kwargs) -> None:
         """"""
-        logger.add(sink=sink, level=level, format=self.__dispose, **kwargs)
+        handler.add(sink=sink, level=level, format=self.__dispose, **kwargs)
         return
 
     def dispose(self, func) -> Callable:
@@ -133,27 +144,28 @@ class Logger:
     """"""
     _context_bind = contextvars.ContextVar("context_bind", default="")
 
-    def __init__(self, flag: str = "json"):
+    def __init__(self):
         """"""
-        self.app = AppDispose(flag=flag)
-        self.json = JsonDispose(flag=flag)
-        self.stderr = StderrDispose(logger=self.logger, flag=flag)
+        self._flag = "json"
+        self.__rename_callback = None
+        self.app = AppDispose(flag=self._flag)
+        self.json = JsonDispose(flag=self._flag)
+        self.stderr = StderrDispose(handler=self.json.handler, flag=self._flag)
+
+    def __getattr__(self, item) -> _logger:
+        """"""
+        return getattr(self.handler, item)
 
     @property
-    def logger(self):
-        # TODO 该部分需要考虑, 逻辑不够严谨, 可能存在问题
+    def handler(self) -> _logger:
         context_bind = self._context_bind.get() or None
         if context_bind is not None:
-            return self.json.logger.bind(**json.loads(context_bind))
-        return self.json.logger
-
-    # @property
-    # def context_logger(self):
-    #     return self.json.logger.bind(**json.loads(self._context_bind.get()))
+            return self.json.handler.bind(**json.loads(context_bind))
+        return self.json.handler
 
     def init_app(self, sink, level: str = "INFO", **kwargs):
         """"""
-        self.app.init(logger=self.logger, sink=sink, level=level, **kwargs)
+        self.app.init(handler=self.json.handler, sink=sink, level=level, **kwargs)
         return
 
     def init_json(self, sink, level: str = "INFO", encoding: str = "UTF-8", **kwargs) -> None:
@@ -172,13 +184,4 @@ class Logger:
         return
 
 
-if __name__ == '__main__':
-    obj = Logger()
-    obj.context_bind(c=3, d=4)
-    obj.init_app(sink="./app.log")
-    obj.init_json(sink="./json.log")
-    obj.global_bind(a=1, b=2)
-    obj.logger.debug("1")
-    obj.logger.info("2", json=True)
-    obj.logger.warning("3", json=True)
-    obj.logger.error("4", json=True)
+logger: Union[Logger, _Logger] = Logger()

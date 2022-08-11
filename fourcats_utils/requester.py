@@ -141,9 +141,3 @@ class Requester(PoolManager):
             logger.debug("RESPONSE: Unknown error occurred in JSON parsing, please use the response result normally.")
         logger.debug("".join(["*" * 30, " " * 5, "RESPONSE END ", " " * 5, "*" * 30]))
         return response
-
-
-if __name__ == '__main__':
-    requester = Requester()
-    data = requester.request("GET", "https://mini.wiwide.cn/dash/message_auth", with_logger=True)
-    print(data.status)
