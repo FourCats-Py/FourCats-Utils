@@ -32,7 +32,7 @@ class Response(HTTPResponse):
         result = json.loads(self.data)
         if result[field] != value:
             raise ValueError(
-                f"The target status is {value}, but the actual request status is {result.get('field', '')}."
+                f"The target status is {value}, but the actual request status is {result.get(field, '')}."
             )
         return result
 
